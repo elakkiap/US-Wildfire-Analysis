@@ -18,6 +18,9 @@ This python file consists of all the work done along with the visualizations.
 
 other_work folder has all the files that were used for arriving at the inferences drawn in the US Wildfire Analysis.ipynb. More visualization results are included in these files
 
+# How to run the code
+The variable "SQL_DB_FILE_PATH" should be set to the dataset path, then the code can run successfully as long as all the third-party modules are included
+
 # Third-Party Modules
 Pandas <br/>
 numpy <br/>
