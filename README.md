@@ -9,7 +9,7 @@ https://www.kaggle.com/rtatman/188-million-us-wildfires
 ·US Wildfire Analysis.pdf <br/>
 The final presentation as a pdf file
 
-·US Wildfire Analysis.ipynb <br/>
+·US_Wildfire_Analysis.ipynb <br/>
 The Jupyter notebook which combines all the visualizations <br/>
 (The visualizations for "Heat Map" are unable to load on Github, uploaded two separate images named "number_of_wildfires.JPG" and "size_of_wildfires.JPG").
 
@@ -17,6 +17,9 @@ The Jupyter notebook which combines all the visualizations <br/>
 This python file consists of all the work done along with the visualizations. 
 
 other_work folder has all the files that were used for arriving at the inferences drawn in the US Wildfire Analysis.ipynb. More visualization results are included in these files
+
+# How to run the code
+The variable "SQL_DB_FILE_PATH" should be set to the dataset path, then the code can run successfully as long as all the third-party modules are included
 
 # Third-Party Modules
 Pandas <br/>
