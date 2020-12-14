@@ -382,6 +382,269 @@ heatmap(ca_only)
 heatmap(tx_only)
 heatmap(ny_only)
 
+#east vs west
 
+al = ['AK','AL','AR','AZ','CA','CO','CT','DC','DE','FL','GA','HI','IA','ID','IL','IN','KS','KY','LA','MA','MD','ME','MI','MN','MO','MS','MT','NC','ND','NE','NH','NJ','NM','NV','NY','OH','OK','OR','PA','PR','RI','SC','SD','TN','TX','UT','VA','VT','WA','WI','WV','WY']
+east_us = ['AL', 'TN', 'KY', 'ME','NH','NY','MA','RI','CT','NJ','DE', 'MD', 'VA', 'WV', 'VI','PA','NC','SC', 'KY', 'GA','FL']
+west_us = ['CA','OR','WA', 'AK', 'NV', 'AZ', 'ID', 'MT' ]
+others = []
+for state in al:
+    if state not in east_us:
+        if state not in west_us:
+            others.append(state)
+
+
+
+
+north = ['AK', 'WA', 'MT','ND', 'SD', 'WY', 'OR','IL','IN', 'IA', 'ME', 'MA', 'MI','MN' 'NH','NJ','NY','OH','PA','RI','VT','WI']
+south = []
+for state in al:
+    if state not in north:
+        south.append(state)
+def getEastResult(q):
+    in_query = "('" + "','".join(east_us) + "')"
+    return data_analyzer.read_sql(q.format(in_query), con=connection)
+
+def getWestResult(q):
+    in_query = "('" + "','".join(west_us) + "')"
+    return data_analyzer.read_sql(q.format(in_query), con=connection)
+
+def getOtherResult(q):
+    in_query = "('" + "','".join(others) + "')"
+    return data_analyzer.read_sql(q.format(in_query), con=connection)
+
+def getNorthResult(q):
+    in_query = "('" + "','".join(north) + "')"
+    return data_analyzer.read_sql(q.format(in_query), con=connection)
+
+def getSouthResult(q):
+    in_query = "('" + "','".join(south) + "')"
+    return data_analyzer.read_sql(q.format(in_query), con=connection)
+
+def getAllResult(q):
+    res = {}
+    res['east'] = getEastResult(q)
+    res['west'] = getWestResult(q)
+    res['other'] = getOtherResult(q)
+    res['north'] = getNorthResult(q)
+    res['south'] = getSouthResult(q)
+    return res
+
+res = getAllResult("""
+    SELECT STATE, SUM(FIRE_SIZE) TOTAL
+    FROM FIRES
+    WHERE STATE IN {}
+    GROUP BY STATE
+    ORDER BY TOTAL DESC
+""")
+
+res['east'].set_index('STATE')['TOTAL'].plot(title = 'Acres Affected - East US', kind="bar")
+
+res['west'].set_index('STATE')['TOTAL'].plot(title = 'Acres Affected - West US', kind="bar")
+
+res['other'].set_index('STATE')['TOTAL'].plot(title = 'Acres Affected - Other US', kind="bar")
+
+res['east']
+labels = ['east', 'west', 'central']
+regions = []
+regions.append(sum(res['east']['TOTAL']))
+regions.append(sum(res['west']['TOTAL']))
+regions.append(sum(res['other']['TOTAL']))
+fig1, ax1 = plt.subplots()
+ax1.pie(regions,labels=labels, autopct='%1.1f%%',
+        shadow=True, startangle=90)
+ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+
+plt.show()
+
+res['east']
+labels = ['north', 'south']
+regions = []
+regions.append(sum(res['north']['TOTAL']))
+regions.append(sum(res['south']['TOTAL']))
+fig1, ax1 = plt.subplots()
+ax1.pie(regions,labels=labels, autopct='%1.1f%%',
+        shadow=True, startangle=90)
+ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+
+plt.show()
+
+res = getAllResult("""
+    SELECT STAT_CAUSE_DESCR CAUSE, COUNT(*) INCIDENT_COUNT
+    FROM FIRES
+    WHERE STATE IN {}
+    GROUP BY CAUSE
+""")
+
+res['east'].set_index('CAUSE')['INCIDENT_COUNT'].plot(title = 'Frequency - East US', kind="bar", color='green')
+
+res['west'].set_index('CAUSE')['INCIDENT_COUNT'].plot(title = 'Frequency - West US', kind="bar", color='green')
+
+res['other'].set_index('CAUSE')['INCIDENT_COUNT'].plot(title = 'Frequency - Other US', kind="bar", color='green')
+
+
+#cause prediction
+cursor = connection.execute('select * from fires')
+names = list(map(lambda x: x[0], cursor.description))
+print(names)
+
+query = """
+    SELECT
+      latitude,
+      longitude,
+      fire_size as size,
+      strftime('%w', discovery_date) as day_of_week,
+      strftime('%m', discovery_date) as month,
+      fire_year as year,
+      CONT_TIME as burn_time,
+      STATE as state,
+      stat_cause_descr as cause
+    FROM fires
+    LIMIT 50000
+    """
+
+df = pd.read_sql(query, con=connection)
+df = df.rename(columns={"STAT_CAUSE_DESCR": "cause"})
+df['cause'] = df['cause'].map(causes_map)
+df = df.dropna()
+print(df.columns)
+print(df.head)
+
+d = defaultdict(int)
+idx = 0
+for x in df['state']:
+    if x in d: continue
+    d[x] = idx
+    idx += 1
+df['state'] = df['state'].replace(d)
+
+def train_xgb(data):
+    X = data.drop(['cause'], axis=1).values
+    Y = data['cause'].values
+    X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, random_state=0)
+    xgb = XGBClassifier(n_estimators=300)
+    xgb.fit(X_train, y_train)
+    preds = xgb.predict(X_test)
+    acc_xgb = (preds == y_test).sum().astype(float) / len(preds)*100
+    print("XGBoost's prediction accuracy is: %3.2f" % (acc_xgb))
+
+
+def grid_search(data):
+    data = data.dropna()
+    X = data.drop(['cause'], axis=1).values
+    Y = data['cause'].values
+    X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, random_state=0)
+    clf = xgb.XGBClassifier()
+    parameters = {
+#          "eta"    : [0.05, 0.15, 0.25 ] ,
+         "max_depth"        : [ 3, 5, 7],
+         "min_child_weight" : [ 1, 3, 5 ],
+         "gamma"            : [ 0.0, 0.1, 0.2],
+         "colsample_bytree" : [ 0.3, 0.5 , 0.7 ]
+    }
+    grid = GridSearchCV(clf,
+                        parameters, n_jobs=4,
+                        scoring="neg_log_loss",
+                        cv=3,
+                       verbose = 2)
+
+    grid.fit(X_train, y_train)
+    return grid
+
+def rf_clf(data_frame):
+    data_frame = data_frame.dropna()
+    X = data_frame.drop(['cause'], axis=1).values
+    Y = data_frame['cause'].values
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size = 0.2, random_state=0) # 80% to train; 20% test
+    classifier = RandomForestClassifier(n_estimators=300, random_state=42)
+    classifier.fit(X_train, Y_train)
+    score = classifier.score(X_test, Y_test) * 100
+    print('Test Set Score: {} %'.format(score))
+
+def rf_clf_best(data_frame):
+    data_frame = data_frame.dropna()
+    X = data_frame.drop(['cause'], axis=1).values
+    Y = data_frame['cause'].values
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size = 0.2, random_state=0) # 80% to train; 20% test
+    classifier = RandomForestClassifier(bootstrap=True, ccp_alpha=0.0, class_weight=None,
+                       criterion='gini', max_depth=None, max_features='log2',
+                       max_leaf_nodes=None, max_samples=None,
+                       min_impurity_decrease=0.0, min_impurity_split=None,
+                       min_samples_leaf=1, min_samples_split=2,
+                       min_weight_fraction_leaf=0.0, n_estimators=200,
+                       n_jobs=None, oob_score=False, random_state=42, verbose=0,
+                       warm_start=False)
+    classifier.fit(X_train, Y_train)
+    score = classifier.score(X_test, Y_test) * 100
+    print('Test Set Score: {} %'.format(score))
+    return classifier
+
+def rf_gridsearch(data):
+    data = data.dropna()
+    X = data.drop(['cause'], axis=1).values
+    Y = data['cause'].values
+    X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, random_state=0)
+    n_estimators = [200, 300]
+    max_depth = [5, 15, None]
+    max_features = ['auto', 'sqrt', 'log2']
+    criterion = ['gini', 'entropy']
+
+    hyperF = dict(n_estimators = n_estimators, max_depth = max_depth,
+              max_features = max_features, criterion = criterion)
+    forest = RandomForestClassifier(random_state=42)
+    gridF = GridSearchCV(forest, hyperF, cv = 5, verbose = 2,
+                      n_jobs = 4)
+    bestF = gridF.fit(X_train, y_train)
+    return bestF
+
+# Without State
+rf_clf(df.drop(['state'], axis=1))
+
+# With State
+rf_clf(df)
+
+# Grid Search
+bestF = rf_gridsearch(df)
+print(bestF.best_estimator_)
+
+clf = rf_clf_best(df)
+
+def confusion_matrix(clf, data):
+    data = data.dropna()
+    X = data.drop(['cause'], axis=1).values
+    Y = data['cause'].values
+    X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, random_state=0)
+    titles_options = [("Confusion matrix, without normalization", None),
+                      ("Normalized confusion matrix", 'true')]
+    for title, normalize in titles_options:
+        disp = plot_confusion_matrix(clf, X_test, y_test,
+                                     display_labels=data['cause'],
+                                     cmap=plt.cm.Blues,
+                                     normalize=normalize)
+        disp.ax_.set_title(title)
+
+        print(title)
+        print(disp.confusion_matrix)
+
+    plt.show()
+
+confusion_matrix(clf, df)
+
+import seaborn as sn
+def plot(clf, data):
+    data = data.dropna()
+    X = data.drop(['cause'], axis=1).values
+    Y = data['cause'].values
+    X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, random_state=0)
+    y_pred = clf.predict(X_test)
+    cm = confusion_matrix(y_test, y_pred)
+    print(cm)
+    df_cm = pd.DataFrame(cm, index = [i for i in "ABCDEFGHI"],
+                      columns = [i for i in "ABCDEFGHI"])
+    plt.figure(figsize = (10,7))
+    sn.heatmap(df_cm, annot=True)
+    plt.show()
+
+plot(clf, df)
 
 
