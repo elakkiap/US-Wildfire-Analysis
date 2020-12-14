@@ -9,7 +9,7 @@ https://www.kaggle.com/rtatman/188-million-us-wildfires
 ·US Wildfire Analysis.pdf <br/>
 The final presentation as a pdf file
 
-·US Wildfire Analysis.ipynb <br/>
+·US_Wildfire_Analysis.ipynb <br/>
 The Jupyter notebook which combines all the visualizations <br/>
 (The visualizations for "Heat Map" are unable to load on Github, uploaded two separate images named "number_of_wildfires.JPG" and "size_of_wildfires.JPG").
 
