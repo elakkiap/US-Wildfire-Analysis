@@ -1,4 +1,4 @@
-# California-Wildfire-Analysis
+# US-Wildfire-Analysis
 Final project for ECE 143 Team 4 <br />
 Elakkia Kanaka Parthipan, Shuchen Feng, Jiaxin Zhang, Chin Lee
 
