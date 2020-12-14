@@ -13,6 +13,7 @@ The final presentation as a pdf file
 The Jupyter notebook which combines all the visualizations <br/>
 (The visualizations for "Heat Map" are unable to load on Github, uploaded two separate images named "number_of_wildfires.JPG" and "size_of_wildfires.JPG").
 
+All the other files were used for arriving at the inferences drawn in the US Wildfire Analysis.ipynb
 
 # Third-Party Modules
 Pandas <br/>
