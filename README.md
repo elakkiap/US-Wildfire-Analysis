@@ -4,7 +4,7 @@ Elakkia Kanaka Parthipan, Shuchen Feng, Jiaxin Zhang, Chin Lee
 
 # Dataset & files
 ·1.88 Million US Wildfires <br/>
-https://www.kaggle.com/rtatman/188-million-us-wildfires/notebooks
+https://www.kaggle.com/rtatman/188-million-us-wildfires
 
 ·US Wildfire Analysis.pdf <br/>
 The final presentation as a pdf file
